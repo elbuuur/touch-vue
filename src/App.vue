@@ -4,17 +4,65 @@ export default {
 
   data() {
     return {
+      loader: true,
+      coinList: {},
+      hintList: [],
       ticker: "",
       tickers: [],
       graph: [],
-      selectedTicker: null
+      selectedTicker: null,
+      isError: false
     }
   },
 
+  created() {
+    this.getCoinList()
+  },
+
   methods: {
-    addTicker() {
+    async getCoinList() {
+      try {
+        const response = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
+        this.coinList = (await response.json()).Data
+      } catch (e) {
+
+      } finally {
+        this.loader = false;
+      }
+    },
+
+    useHints() {
+      if(!this.ticker.length){
+        this.hintList = []
+        return
+      }
+
+      this.hintList = []
+      let counter = 0
+
+      for (const coinKey in this.coinList) {
+        const coinFullName = this.coinList[coinKey].FullName.toUpperCase()
+
+        if(coinFullName.includes(this.ticker.toUpperCase())){
+          this.hintList.push(coinKey)
+
+          ++counter;
+        }
+
+        if(counter === 4) {
+          break
+        }
+      }
+    },
+
+    addTicker(ticker = this.ticker) {
+      const upperCaseTicker = ticker.toUpperCase()
+      if(!this.validateTicker(upperCaseTicker)) {
+        return
+      }
+
       const currentTicker = {
-        'name': this.ticker,
+        'name': upperCaseTicker,
         'price': '-'
       };
 
@@ -32,6 +80,18 @@ export default {
       }, 5000)
 
       this.ticker = ''
+    },
+
+    validateTicker(ticker) {
+      if(this.tickers.find(tickersItem => tickersItem.name === ticker)) {
+        this.isError = true
+
+        return false
+      } else {
+        this.isError = false
+
+        return true
+      }
     },
 
     removeTicker(tickerToRemove) {
@@ -57,13 +117,15 @@ export default {
 </script>
 
 <template>
-  <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
-<!--    <div class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center">-->
-<!--      <svg class="animate-spin -ml-1 mr-3 h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">-->
-<!--        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>-->
-<!--        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>-->
-<!--      </svg>-->
-<!--    </div>-->
+  <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4 mt">
+    <div
+        v-if="loader"
+        class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex items-center justify-center">
+      <svg class="animate-spin -ml-1 mr-3 h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+    </div>
     <div class="container">
       <section>
         <div class="flex">
@@ -72,7 +134,8 @@ export default {
             <div class="mt-1 relative rounded-md shadow-md">
               <input
                   v-model="ticker"
-                  @keydown.enter="addTicker"
+                  @input="useHints"
+                  @keydown.enter="addTicker()"
                   type="text"
                   name="wallet"
                   id="wallet"
@@ -80,12 +143,17 @@ export default {
                   placeholder="Например DOGE"
               />
             </div>
-            <div v-if="tickers.length" class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
-              <span v-for="item in tickers" class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
-                {{ item.name }}
+            <div v-if="hintList.length" class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
+              <span
+                  v-for="hint in hintList"
+                  @click="addTicker(hint)"
+                  class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium bg-gray-300 text-gray-800 cursor-pointer">
+                {{ hint }}
               </span>
             </div>
-            <div class="text-sm text-red-600">Такой тикер уже добавлен</div>
+            <div
+                v-if="isError"
+                class="text-sm text-red-600">Такой тикер уже добавлен</div>
           </div>
         </div>
         <button
