@@ -198,6 +198,4 @@ export default {
   </div>
 </template>
 
-<style src="src/app.css"></style>
-
 
