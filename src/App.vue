@@ -12,7 +12,9 @@ export default {
       graph: [],
       selectedTicker: null,
       isError: false,
-      filter: ''
+      filter: '',
+      page: 1,
+      hasNextPage: true
     }
   },
 
@@ -27,6 +29,24 @@ export default {
     }
 
     this.getCoinList()
+  },
+
+  watch: {
+    filter() {
+      this.page = 1;
+      window.history.pushState(
+          null,
+          document.title,
+          `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    },
+    page() {
+      window.history.pushState(
+          null,
+          document.title,
+          `${window.location.pathname}?filter=${this.filter}&page=${this.page}`
+      );
+    }
   },
 
   methods: {
@@ -82,6 +102,8 @@ export default {
     },
 
     addTicker(ticker = this.ticker) {
+      this.filter = ''
+      
       const upperCaseTicker = ticker.toUpperCase()
       if (!this.validateTicker(upperCaseTicker)) {
         return
@@ -137,7 +159,16 @@ export default {
     },
 
     filteredTickers() {
-      return this.tickers.filter(ticker => ticker.name.includes(this.filter.toUpperCase()))
+      let startIndex = (this.page - 1) * 6
+      let endIndex = this.page * 6
+
+      let filteredTickers = this.tickers.filter(
+          ticker => ticker.name.includes(this.filter.toUpperCase())
+      )
+
+      this.hasNextPage = filteredTickers.length > endIndex;
+
+      return filteredTickers.slice(startIndex, endIndex)
     }
   }
 }
@@ -217,11 +248,15 @@ export default {
 
             <div class="flex gap-5">
               <button
+                  v-if="page > 1"
+                  @click="this.page--"
                   class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
               >
                 Назад
               </button>
               <button
+                  v-if="hasNextPage"
+                  @click="this.page++"
                   class="my-4 inline-flex items-center py-2 px-4 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-full text-white bg-gray-600 hover:bg-gray-700 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
               >
                 Вперед
