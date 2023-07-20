@@ -1,4 +1,7 @@
 <script>
+
+import { loadCoinList, subscribeToTicker, unsubscribeFromTicker } from './api';
+
 export default {
   name: "App",
 
@@ -36,7 +39,9 @@ export default {
       this.tickers = JSON.parse(tickersData)
 
       this.tickers.forEach(ticker => {
-        this.addTicker(ticker.name)
+        subscribeToTicker(ticker.name, newPrice =>
+            this.updateTicker(ticker.name, newPrice)
+        );
       })
     }
 
@@ -129,8 +134,7 @@ export default {
   methods: {
     async getCoinList() {
       try {
-        const response = await fetch('https://min-api.cryptocompare.com/data/all/coinlist?summary=true')
-        this.coinList = (await response.json()).Data
+        this.coinList = await loadCoinList()
       } catch (e) {
 
       } finally {
@@ -162,23 +166,17 @@ export default {
       }
     },
 
-    subscribeToUpdates(currentTickerName) {
-      return setInterval(async () => {
-        let apiKey = '2f4bcf8c237ecec3d91daa82cd842e86d4a819cf30ed85ae2855b97179464f72';
-        let tickerPrice = await (await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${currentTickerName}&tsyms=USD&api_key=${apiKey}`)).json()
+    updateTicker(currentTickerName, price) {
+      this.tickers.find(tickersItem => tickersItem.name === currentTickerName).price =
+          price > 1 ? price.toFixed(2) : price.toPrecision(2);
 
-        this.tickers.find(tickersItem => tickersItem.name === currentTickerName).price =
-            tickerPrice.USD > 1 ? tickerPrice.USD.toFixed(2) : tickerPrice.USD.toPrecision(2);
-
-        if (currentTickerName === this.selectedTicker?.name) {
-          this.graph.push(tickerPrice.USD)
-        }
-      }, 5000)
+      if (currentTickerName === this.selectedTicker?.name) {
+        this.graph.push(price)
+      }
     },
 
     addTicker(ticker = this.ticker) {
       this.filter = ''
-      
       const upperCaseTicker = ticker.toUpperCase()
       if (!this.validateTicker(upperCaseTicker)) {
         return
@@ -192,7 +190,9 @@ export default {
 
       this.tickers.push(currentTicker)
 
-      currentTicker.idInterval = this.subscribeToUpdates(currentTicker.name)
+      subscribeToTicker(currentTicker.name, newPrice =>
+          this.updateTicker(currentTicker.name, newPrice)
+      );
 
       this.ticker = ''
       this.hintList = []
@@ -214,6 +214,8 @@ export default {
       clearInterval(tickerToRemove.idInterval)
 
       this.tickers = this.tickers.filter(item => item !== tickerToRemove)
+
+      unsubscribeFromTicker(tickerToRemove.name)
 
       this.selectedTicker = null
       this.graph = []
