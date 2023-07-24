@@ -2,6 +2,8 @@
 
 import { loadCoinList, subscribeToTicker, unsubscribeFromTicker } from './api';
 
+const LS_KEY = 'cryptonomicon-list'
+
 export default {
   name: "App",
 
@@ -34,13 +36,15 @@ export default {
       }
     });
 
-    const tickersData = localStorage.getItem('cryptonomicon-list')
+    const tickersData = localStorage.getItem(LS_KEY)
     if (tickersData) {
       this.tickers = JSON.parse(tickersData)
 
       this.tickers.forEach(ticker => {
         subscribeToTicker(ticker.name, newPrice =>
-            this.updateTicker(ticker.name, newPrice)
+            this.updateTicker(ticker.name, newPrice),
+            () =>
+                ticker.isExist = false
         );
       })
     }
@@ -74,8 +78,11 @@ export default {
       }
     },
 
-    tickers() {
-      localStorage.setItem('cryptonomicon-list', JSON.stringify(this.tickers))
+    tickers: {
+      handler(newValue, oldValue) {
+        localStorage.setItem(LS_KEY, JSON.stringify(newValue))
+      },
+      deep: true
     },
 
     pageStateOptions(value) {
@@ -177,6 +184,7 @@ export default {
 
     addTicker(ticker = this.ticker) {
       this.filter = ''
+
       const upperCaseTicker = ticker.toUpperCase()
       if (!this.validateTicker(upperCaseTicker)) {
         return
@@ -185,13 +193,18 @@ export default {
       let currentTicker = {
         'name': upperCaseTicker,
         'price': '-',
-        'idInterval': ''
+        'isExist': true
       };
+
 
       this.tickers.push(currentTicker)
 
-      subscribeToTicker(currentTicker.name, newPrice =>
-          this.updateTicker(currentTicker.name, newPrice)
+      subscribeToTicker(currentTicker.name,
+          (newPrice) =>
+            this.updateTicker(currentTicker.name, newPrice),
+          () => {
+            this.tickers.find(tickersItem => tickersItem.name === currentTicker.name).isExist = false
+          }
       );
 
       this.ticker = ''
@@ -332,11 +345,13 @@ export default {
             <hr class="w-full border-t border-gray-600 my-4"/>
             <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
               <div
-                  class="bg-white overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
+                  class="overflow-hidden shadow rounded-lg border-purple-800 border-solid cursor-pointer"
                   v-for="item in paginatedTickers"
                   :key="item.name"
                   :class="{
-                    'border-4': selectedTicker === item
+                    'border-4': selectedTicker === item,
+                    'bg-white': item.isExist,
+                    'bg-red-500': !item.isExist
                   }"
                   @click="selectTicker(item)"
               >
